@@ -43,7 +43,7 @@ def run_paarakhmetric_pipeline(image_path: str, use_vision_llm: bool = True) -> 
 
     # --- Step 3: OpenCV Geometry & Perspective Correction ---
     logger.info("Step 3: OpenCV Geometry (Perspective/Rotation)...")
-    img_corrected = correct_perspective_quad(roi_segmented)
+    img_corrected, _ = correct_perspective_quad(roi_segmented)
     
     # --- Step 4: Label/ROI Extraction ---
     logger.info("Step 4: Label/ROI Extraction...")

@@ -377,109 +377,115 @@ async def upload_image(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    # Verify inspection exists
-    db_inspection = db.query(Inspection).filter(Inspection.id == inspection_id).first()
-    if not db_inspection:
-        raise HTTPException(status_code=404, detail="Inspection not found")
-    
-    # 1. Save uploaded file
-    filename = f"{inspection_id}_{panel_side}_{file.filename}"
-    filepath = os.path.join(UPLOAD_DIR, filename)
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        # Verify inspection exists
+        db_inspection = db.query(Inspection).filter(Inspection.id == inspection_id).first()
+        if not db_inspection:
+            raise HTTPException(status_code=404, detail="Inspection not found")
         
-    # Save Image details in database
-    db_image = ProductImage(
-        inspection_id=inspection_id,
-        filename=filename,
-        filepath=filepath,
-        panel_side=panel_side
-    )
-    db.add(db_image)
-    db.commit()
-    db.refresh(db_image)
-    
-        # --- EXECUTE EXACT PAARAKHMETRIC PIPELINE ---
-    from app.pipeline.orchestrator import run_paarakhmetric_pipeline
-    
-    pipeline_result = run_paarakhmetric_pipeline(filepath, use_vision_llm=True)
-    
-    parsed_decls = pipeline_result.get('extracted_fields', {})
-    compliance = pipeline_result.get('compliance_report', {})
-    ocr_raw = pipeline_result.get('ocr_raw', [])
-    
-    # Save OCR words/bboxes into DB for audit
-    if ocr_raw:
-        for item in ocr_raw:
-            try:
-                db_ocr = OCRResult(
-                    product_image_id=db_image.id,
-                    text=item.get('text', ''),
-                    confidence=item.get('confidence', 0.0),
-                    bbox_x=item.get('bounding_box', {}).get('x', 0),
-                    bbox_y=item.get('bounding_box', {}).get('y', 0),
-                    bbox_w=item.get('bounding_box', {}).get('width', 0),
-                    bbox_h=item.get('bounding_box', {}).get('height', 0)
-                )
-                db.add(db_ocr)
-            except Exception as e:
-                pass
-        db.commit()
-
-    # Extract declarations & Automatic Commodity Categorization
-    all_ocr_text = " ".join([item.get('text', '') for item in (ocr_raw or [])])
-    detected_name = parsed_decls.get('product_name', {}).get('value') or ''
-    detected_category = classify_commodity(all_ocr_text, detected_name)
-    
-    if db_inspection.product:
-        if not db_inspection.product.name or db_inspection.product.name == 'New Unidentified Package':
-            db_inspection.product.name = detected_name or 'Packaged Commodity'
-        if not db_inspection.product.category or db_inspection.product.category == 'General':
-            db_inspection.product.category = detected_category
-        db.commit()
-    
-    # Save or update parsed declarations
-    for field_name, decl in parsed_decls.items():
-        if field_name == 'unsupported_language_detected':
-            continue
-        existing = db.query(Declaration).filter(
-            Declaration.inspection_id == inspection_id,
-            Declaration.field_name == field_name
-        ).first()
-        
-        if existing:
-            existing.value = decl.get('value', '')
-            existing.status = decl.get('status', 'MISSING')
-            existing.confidence = decl.get('confidence', 0.0)
-            existing.original_text = decl.get('original_text', '')
-        else:
-            db_decl = Declaration(
-                inspection_id=inspection_id,
-                field_name=field_name,
-                value=decl.get('value', ''),
-                status=decl.get('status', 'MISSING'),
-                confidence=decl.get('confidence', 0.0),
-                original_text=decl.get('original_text', '')
-            )
-            db.add(db_decl)
-    db.commit()
-
-    # Update overall status
-    overall_status = compliance.get('overall_status', 'REQUIRES_REVIEW')
-    db_inspection.status = overall_status
-    db.commit()
-
-    # Log to Compliance Result
-    for res in compliance.get('results', []):
-        db_res = ComplianceResult(
+        # 1. Save uploaded file
+        filename = f"{inspection_id}_{panel_side}_{file.filename}"
+        filepath = os.path.join(UPLOAD_DIR, filename)
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Save Image details in database
+        db_image = ProductImage(
             inspection_id=inspection_id,
-            rule_id=res.get('rule_id'),
-            status=res.get('status'),
-            details=res.get('details')
+            filename=filename,
+            filepath=filepath,
+            panel_side=panel_side
         )
-        db.add(db_res)
-    db.commit()
+        db.add(db_image)
+        db.commit()
+        db.refresh(db_image)
+        
+            # --- EXECUTE EXACT PAARAKHMETRIC PIPELINE ---
+        from app.pipeline.orchestrator import run_paarakhmetric_pipeline
+        
+        pipeline_result = run_paarakhmetric_pipeline(filepath, use_vision_llm=True)
+        
+        parsed_decls = pipeline_result.get('extracted_fields', {})
+        compliance = pipeline_result.get('compliance_report', {})
+        ocr_raw = pipeline_result.get('ocr_raw', [])
+        
+        # Save OCR words/bboxes into DB for audit
+        if ocr_raw:
+            for item in ocr_raw:
+                try:
+                    db_ocr = OCRResult(
+                        product_image_id=db_image.id,
+                        text=item.get('text', ''),
+                        confidence=item.get('confidence', 0.0),
+                        bbox_x=item.get('bounding_box', {}).get('x', 0),
+                        bbox_y=item.get('bounding_box', {}).get('y', 0),
+                        bbox_w=item.get('bounding_box', {}).get('width', 0),
+                        bbox_h=item.get('bounding_box', {}).get('height', 0)
+                    )
+                    db.add(db_ocr)
+                except Exception as e:
+                    pass
+            db.commit()
 
+        # Extract declarations & Automatic Commodity Categorization
+        all_ocr_text = " ".join([item.get('text', '') for item in (ocr_raw or [])])
+        detected_name = parsed_decls.get('product_name', {}).get('value') or ''
+        detected_category = classify_commodity(all_ocr_text, detected_name)
+        
+        if db_inspection.product:
+            if not db_inspection.product.name or db_inspection.product.name == 'New Unidentified Package':
+                db_inspection.product.name = detected_name or 'Packaged Commodity'
+            if not db_inspection.product.category or db_inspection.product.category == 'General':
+                db_inspection.product.category = detected_category
+            db.commit()
+        
+        # Save or update parsed declarations
+        for field_name, decl in parsed_decls.items():
+            if field_name == 'unsupported_language_detected':
+                continue
+            existing = db.query(Declaration).filter(
+                Declaration.inspection_id == inspection_id,
+                Declaration.field_name == field_name
+            ).first()
+            
+            if existing:
+                existing.value = decl.get('value', '')
+                existing.status = decl.get('status', 'MISSING')
+                existing.confidence = decl.get('confidence', 0.0)
+                existing.original_text = decl.get('original_text', '')
+            else:
+                db_decl = Declaration(
+                    inspection_id=inspection_id,
+                    field_name=field_name,
+                    value=decl.get('value', ''),
+                    status=decl.get('status', 'MISSING'),
+                    confidence=decl.get('confidence', 0.0),
+                    original_text=decl.get('original_text', '')
+                )
+                db.add(db_decl)
+        db.commit()
+
+        # Update overall status
+        overall_status = compliance.get('overall_status', 'REQUIRES_REVIEW')
+        db_inspection.status = overall_status
+        db.commit()
+
+        # Log to Compliance Result
+        for res in compliance.get('results', []):
+            db_res = ComplianceResult(
+                inspection_id=inspection_id,
+                rule_id=res.get('rule_id'),
+                status=res.get('status'),
+                details=res.get('details')
+            )
+            db.add(db_res)
+        db.commit()
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print("MYDEBUG:", e)
+        return {"error": str(e), "trace": traceback.format_exc()}
     return {
         'status': 'success',
         'image_id': db_image.id,

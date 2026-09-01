@@ -472,6 +472,18 @@ export default function App() {
     }
   };
 
+  
+  const dataURItoBlob = (dataURI: string) => {
+    const byteString = atob(dataURI.split(',')[1]);
+    const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], {type: mimeString});
+  };
+
   const processImage = async () => {
     if (!capturedImage) return;
     setIsProcessing(true);
@@ -479,8 +491,7 @@ export default function App() {
 
     try {
       // Convert base64 to blob
-      const res = await fetch(capturedImage);
-      const blob = await res.blob();
+      const blob = dataURItoBlob(capturedImage);
       const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' });
 
       setProcessingStep("Registering Inspection...");
@@ -549,7 +560,7 @@ export default function App() {
 
     } catch (err) {
       console.error(err);
-      alert("Pipeline failed. Make sure backend is running on 8000.");
+      alert("Pipeline failed: " + (err.message || err) + "\nMake sure backend is running on 8000.");
     } finally {
       setIsProcessing(false);
     }
