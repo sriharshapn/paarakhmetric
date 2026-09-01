@@ -573,3 +573,9 @@ def get_rules(db: Session = Depends(get_db)):
         "applies_to": r.applies_to
     } for r in rules]
 
+# Serve frontend build if present
+from fastapi.staticfiles import StaticFiles
+frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/dist"))
+if os.path.exists(frontend_dist):
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+
