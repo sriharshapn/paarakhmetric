@@ -242,7 +242,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: cleanUsername, password: cleanPassword, role: 'officer' })
@@ -348,14 +348,14 @@ export default function App() {
     const item = queue[index];
 
     try {
-      const prodRes = await fetch(`${API_BASE_URL}/api/products', {
+      const prodRes = await fetch(`${API_BASE_URL}/api/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: item.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " "), category: "General" })
       });
       const prodData = await prodRes.json();
 
-      const inspRes = await fetch(`${API_BASE_URL}/api/inspections', {
+      const inspRes = await fetch(`${API_BASE_URL}/api/inspections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product_id: prodData.id, location: "Batch Ingestion Depot", notes: `Batch file: ${item.name}` })
@@ -485,7 +485,7 @@ export default function App() {
 
       setProcessingStep("Registering Inspection...");
       // 1. Create Product
-      const prodRes = await fetch(`${API_BASE_URL}/api/products', {
+      const prodRes = await fetch(`${API_BASE_URL}/api/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: "Live Scanned Commodity", category: "General" })
@@ -493,7 +493,7 @@ export default function App() {
       const prodData = await prodRes.json();
 
       // 2. Create Inspection
-      const inspRes = await fetch(`${API_BASE_URL}/api/inspections', {
+      const inspRes = await fetch(`${API_BASE_URL}/api/inspections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product_id: prodData.id, location: "Mobile Scanner", notes: "Live scan via frontend" })
