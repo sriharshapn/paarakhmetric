@@ -16,8 +16,7 @@ import ProfileScreen from './screens/ProfileScreen';
 import ScanScreen from './screens/ScanScreen';
 import InspectionDetailScreen from './screens/InspectionDetailScreen';
 
-// Update this to your Render URL after deployment! (e.g., 'https://paarakhmetric-backend.onrender.com')
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+export const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? '' : 'https://paarakhmetric-api.onrender.com');
 
 type Page = 'dashboard' | 'scan' | 'history' | 'inspection' | 'settings' | 'reports' | 'profile';
 
